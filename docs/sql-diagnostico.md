@@ -18,3 +18,27 @@ sola vez reduciría ese trabajo repetido. Queda por comprobarlo comparando
 las lecturas y los tiempos con los mismos parámetros.
 
 [Captura original con estadísticas y plan real](evidencia/finperf-original-p7-2023.txt)
+
+
+Para calcular YTD el procedimiento original usa SUM(DailyReturn), 
+primero quiero verificar que DailyReturn entregue el retorno correcto para el dia en cuestión
+dado que se utiliza en el retorno acumulado (1+rd) para calcular el acumulado de lo que va del año.
+
+SELECT
+    COUNT(*) AS Positions,
+    SUM(PnL) AS PortfolioPnL,
+    SUM(MarketValueBegin) AS PortfolioBeginValue,
+    CAST(100.0 * SUM(DailyReturn) AS decimal(12, 6)) AS SumInstrumentReturnsPct,
+    CAST(100.0 * SUM(PnL) / NULLIF(SUM(MarketValueBegin), 0)
+         AS decimal(12, 6)) AS PortfolioReturnPct
+FROM dbo.PositionDaily
+WHERE PortfolioId = 7
+  AND AsOfDate >= '20230103'
+  AND AsOfDate <  '20230104';
+
+Positions   PortfolioPnL                             PortfolioBeginValue                      SumInstrumentReturnsPct PortfolioReturnPct
+----------- ---------------------------------------- ---------------------------------------- ----------------------- ------------------
+        100                              129379.8494                            53639476.0000               28.232000            .241202
+
+
+El PnL corresponde al porcentaje mostrado en la columna PortfolioReturnPct, por lo que SumInstrumentReturnsPct está fallando como retorno.
