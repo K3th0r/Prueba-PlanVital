@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/FinPerf.Performance/FinPerf.Performance.csproj" />
+  <Project Path="tests/FinPerf.Performance.Tests/FinPerf.Performance.Tests.csproj" />
+</Solution>
