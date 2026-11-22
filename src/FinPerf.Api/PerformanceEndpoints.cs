@@ -6,6 +6,13 @@ namespace FinPerf.Api;
 
 internal static class PerformanceEndpoints
 {
+    // Entrega el catálogo a la vista y deja que el manejador global comunique los fallos de lectura.
+    public static async Task<IResult> GetPortfolios(IPortfolioCatalog catalog, CancellationToken cancellationToken)
+    {
+        var portfolios = await catalog.GetPortfoliosAsync(cancellationToken);
+        return Results.Ok(portfolios);
+    }
+
     // Valida el rango, pide sus totales diarios y devuelve el P&L y el retorno acumulado.
     public static async Task<IResult> GetRange(
         int id, string? from, string? to, IPerformanceRepository repository, CancellationToken cancellationToken)

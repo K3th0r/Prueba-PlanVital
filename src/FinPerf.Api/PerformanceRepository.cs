@@ -5,6 +5,14 @@ using Microsoft.Data.SqlClient;
 
 namespace FinPerf.Api;
 
+public sealed record PortfolioItem(int Id, string Name, DateOnly InceptionDate);
+
+public interface IPortfolioCatalog
+{
+    // Devuelve los portafolios disponibles para el selector de la vista.
+    Task<IReadOnlyList<PortfolioItem>> GetPortfoliosAsync(CancellationToken cancellationToken);
+}
+
 public sealed record PortfolioCoverage(DateOnly InceptionDate, DateOnly? FirstDate, DateOnly? LastDate);
 
 public sealed record MonthlyPerformance(DateOnly MonthStart, int TradingDays,
@@ -24,7 +32,7 @@ public interface IPerformanceRepository
         int id, DateOnly from, DateOnly to, CancellationToken cancellationToken);
 }
 
-internal sealed class SqlPerformanceRepository(IConfiguration configuration) : IPerformanceRepository
+internal sealed class SqlPerformanceRepository(IConfiguration configuration) : IPerformanceRepository, IPortfolioCatalog
 {
     private static readonly string DailyTotalsSql = LoadSql("DailyTotalsByRange.sql");
     private static readonly string MonthlySql = LoadSql("MonthlyPerformance.sql");
@@ -32,6 +40,28 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
     // Prepara la conexión a FinPerf con la cadena configurada para la API.
     private SqlConnection CreateConnection() => new(configuration.GetConnectionString("FinPerf")
         ?? throw new InvalidOperationException("Configura ConnectionStrings__FinPerf."));
+
+    // Lee el catálogo ordenado por id. Si la consulta termina sin filas, devuelve una lista vacía.
+    public async Task<IReadOnlyList<PortfolioItem>> GetPortfoliosAsync(CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT PortfolioId, Name, InceptionDate
+            FROM dbo.Portfolio
+            ORDER BY PortfolioId;
+            """;
+
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        using var command = new SqlCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var portfolios = new List<PortfolioItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            portfolios.Add(new PortfolioItem(reader.GetInt32(0), reader.GetString(1),
+                DateOnly.FromDateTime(reader.GetDateTime(2))));
+        }
+        return portfolios;
+    }
 
     // Lee de SQL Server el inicio del portafolio y sus fechas con datos (primera y última). Devuelve null si el portafolio no existe.
     public async Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken)

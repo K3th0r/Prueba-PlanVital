@@ -4,10 +4,12 @@ using FinPerf.Api;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<IPerformanceRepository, SqlPerformanceRepository>();
+builder.Services.AddScoped<IPortfolioCatalog, SqlPerformanceRepository>();
 
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.MapGet("/api/portfolios", PerformanceEndpoints.GetPortfolios);
 app.MapGet("/api/portfolios/{id:int}/performance", PerformanceEndpoints.GetRange);
 app.MapGet("/api/portfolios/{id:int}/performance/summary", PerformanceEndpoints.GetSummary);
 app.MapGet("/api/portfolios/{id:int}/performance/monthly", PerformanceEndpoints.GetMonthly);

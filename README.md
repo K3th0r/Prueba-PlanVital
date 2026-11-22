@@ -46,6 +46,14 @@ Las dos fechas son inclusivas. El resultado de control es un P&L de 30.280,0165 
 
 Uso `Microsoft.Data.SqlClient` para ejecutar el SQL parametrizado y propagar la cancelación de la petición. El repositorio agrupa las posiciones por día con la consulta que ya se midió. `ReturnCalculator` compone los retornos en memoria.
 
+## Listado de portafolios
+
+```powershell
+Invoke-RestMethod 'http://127.0.0.1:5080/api/portfolios'
+```
+
+El selector recibe una lista ordenada por identificador. Cada elemento contiene `id`, `name` e `inceptionDate`. Una consulta exitosa sin filas devuelve HTTP 200 con `[]`. Un fallo inesperado de lectura devuelve HTTP 500 con `ProblemDetails`.
+
 ## Resumen a una fecha de corte
 
 Con la API en ejecución:
@@ -72,4 +80,4 @@ dotnet test FinPerf.slnx --configuration Release
 
 Las pruebas unitarias verifican la regla financiera. Las de HTTP usan `WebApplicationFactory` con datos de prueba y comprueban el contrato del endpoint. Ambas se pueden ejecutar sin levantar Docker.
 
-Queda por integrar en la API el listado de portafolios.
+La API incluye el listado de portafolios, el rendimiento de un rango, el resumen a una fecha de corte y la serie mensual.
