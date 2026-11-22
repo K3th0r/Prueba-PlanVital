@@ -1,4 +1,10 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FinPerf.Api/FinPerf.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FinPerf.Api.Tests/FinPerf.Api.Tests.csproj" />
+  </Folder>
   <Project Path="src/FinPerf.Performance/FinPerf.Performance.csproj" />
   <Project Path="tests/FinPerf.Performance.Tests/FinPerf.Performance.Tests.csproj" />
 </Solution>
