@@ -4,7 +4,7 @@ using Microsoft.Data.SqlClient;
 
 namespace FinPerf.Api;
 
-public sealed record PortfolioCoverage(DateOnly? FirstDate, DateOnly? LastDate);
+public sealed record PortfolioCoverage(DateOnly InceptionDate, DateOnly? FirstDate, DateOnly? LastDate);
 
 public interface IPerformanceRepository
 {
@@ -24,7 +24,7 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
     public async Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT
+            SELECT p.InceptionDate,
                 (SELECT TOP (1) AsOfDate FROM dbo.PositionDaily WHERE PortfolioId = p.PortfolioId ORDER BY AsOfDate),
                 (SELECT TOP (1) AsOfDate FROM dbo.PositionDaily WHERE PortfolioId = p.PortfolioId ORDER BY AsOfDate DESC)
             FROM dbo.Portfolio AS p
@@ -39,8 +39,9 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
             return null;
 
         return new PortfolioCoverage(
-            reader.IsDBNull(0) ? null : DateOnly.FromDateTime(reader.GetDateTime(0)),
-            reader.IsDBNull(1) ? null : DateOnly.FromDateTime(reader.GetDateTime(1)));
+            DateOnly.FromDateTime(reader.GetDateTime(0)),
+            reader.IsDBNull(1) ? null : DateOnly.FromDateTime(reader.GetDateTime(1)),
+            reader.IsDBNull(2) ? null : DateOnly.FromDateTime(reader.GetDateTime(2)));
     }
 
     public async Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(

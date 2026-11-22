@@ -66,7 +66,7 @@ public sealed class RangeEndpointTests : IDisposable
     {
         public Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken) =>
             Task.FromResult<PortfolioCoverage?>(id == 7
-                ? new PortfolioCoverage(new(2015, 1, 1), new(2024, 12, 31)) : null);
+                ? new PortfolioCoverage(new(2015, 1, 1), new(2015, 1, 1), new(2024, 12, 31)) : null);
 
         public Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(
             int id, DateOnly from, DateOnly to, CancellationToken cancellationToken)
