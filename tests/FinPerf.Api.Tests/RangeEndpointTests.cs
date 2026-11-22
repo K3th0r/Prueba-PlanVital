@@ -40,6 +40,11 @@ public sealed class RangeEndpointTests : IDisposable
     [InlineData("7/performance?from=2023-01-01", 400)]
     [InlineData("7/performance?from=2010-01-01&to=2023-01-01", 400)]
     [InlineData("999/performance?from=2023-01-31&to=2023-02-01", 404)]
+    [InlineData("7/performance/monthly?from=2023-02-01&to=2023-01-31", 400)]
+    [InlineData("7/performance/monthly?from=2023-01-31", 400)]
+    [InlineData("7/performance/monthly?from=2023-02-30&to=2023-03-01", 400)]
+    [InlineData("7/performance/monthly?from=2014-01-01&to=2023-01-31", 400)]
+    [InlineData("999/performance/monthly?from=2023-01-31&to=2023-02-01", 404)]
     public async Task InvalidRequestReturnsProblemDetails(string path, int expected)
     {
         using var client = factory.CreateClient();
@@ -61,6 +66,34 @@ public sealed class RangeEndpointTests : IDisposable
         Assert.Equal(new RangeResponse(0, null, null), await response.Content.ReadFromJsonAsync<RangeResponse>());
     }
 
+    // Comprueba que el endpoint conserve el orden, la unidad del retorno y el P&L de los meses.
+    [Fact]
+    public async Task MonthlyEndpointReturnsNumericResultsForTheRequestedRange()
+    {
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/api/portfolios/7/performance/monthly?from=2023-01-31&to=2023-02-01");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var months = json.RootElement.GetProperty("months");
+        Assert.Equal(2, months.GetArrayLength());
+        Assert.Equal("2023-01-01", months[0].GetProperty("monthStart").GetString());
+        Assert.Equal(13_344.1187m, months[0].GetProperty("pnl").GetDecimal());
+        Assert.Equal(1, months[0].GetProperty("tradingDays").GetInt32());
+        Assert.Equal(13_344.1187 / 56_967_369, months[0].GetProperty("cumulativeReturn").GetDouble());
+        Assert.Equal("2023-02-01", months[1].GetProperty("monthStart").GetString());
+    }
+
+    // Un rango válido sin posiciones deja la lista vacía para que la vista muestre «sin datos».
+    [Fact]
+    public async Task MonthlyEndpointReturnsEmptyMonthsForWeekend()
+    {
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/api/portfolios/7/performance/monthly?from=2023-02-04&to=2023-02-05");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(0, json.RootElement.GetProperty("months").GetArrayLength());
+    }
+
     // Cierra el servidor de prueba al terminar cada caso.
     public void Dispose() => factory.Dispose();
 
@@ -72,6 +105,18 @@ public sealed class RangeEndpointTests : IDisposable
         public Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken) =>
             Task.FromResult<PortfolioCoverage?>(id == 7
                 ? new PortfolioCoverage(new(2015, 1, 1), new(2015, 1, 1), new(2024, 12, 31)) : null);
+
+        // Simula las dos filas mensuales de SQL con una posición de control en cada mes.
+        public Task<IReadOnlyList<MonthlyPerformance>> GetMonthlyAsync(
+            int id, DateOnly from, DateOnly to, CancellationToken cancellationToken)
+        {
+            (DateOnly Day, MonthlyPerformance Month)[] rows = [
+                (new(2023, 1, 31), new(new(2023, 1, 1), 1, 13_344.1187m, 13_344.1187 / 56_967_369)),
+                (new(2023, 2, 1), new(new(2023, 2, 1), 1, 16_935.8978m, 16_935.8978 / 55_513_559))
+            ];
+            return Task.FromResult<IReadOnlyList<MonthlyPerformance>>(
+                rows.Where(row => from <= row.Day && row.Day <= to).Select(row => row.Month).ToArray());
+        }
 
         // Devuelve las filas de prueba comprendidas entre las dos fechas solicitadas.
         public Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json.Serialization;
 using FinPerf.Performance;
 using Microsoft.Data.SqlClient;
 
@@ -6,10 +7,17 @@ namespace FinPerf.Api;
 
 public sealed record PortfolioCoverage(DateOnly InceptionDate, DateOnly? FirstDate, DateOnly? LastDate);
 
+public sealed record MonthlyPerformance(DateOnly MonthStart, int TradingDays,
+    [property: JsonPropertyName("pnl")] decimal PnL, double? CumulativeReturn);
+
 public interface IPerformanceRepository
 {
     // Devuelve las fechas de inicio y de cobertura para validar el período solicitado.
     Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken);
+
+    // Devuelve los meses con posiciones dentro del rango, ordenados por año y mes.
+    Task<IReadOnlyList<MonthlyPerformance>> GetMonthlyAsync(
+        int id, DateOnly from, DateOnly to, CancellationToken cancellationToken);
 
     // Devuelve una fila por fecha con el P&L y el valor inicial del portafolio.
     Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(
@@ -18,7 +26,8 @@ public interface IPerformanceRepository
 
 internal sealed class SqlPerformanceRepository(IConfiguration configuration) : IPerformanceRepository
 {
-    private static readonly string DailyTotalsSql = LoadDailyTotalsSql();
+    private static readonly string DailyTotalsSql = LoadSql("DailyTotalsByRange.sql");
+    private static readonly string MonthlySql = LoadSql("MonthlyPerformance.sql");
 
     // Prepara la conexión a FinPerf con la cadena configurada para la API.
     private SqlConnection CreateConnection() => new(configuration.GetConnectionString("FinPerf")
@@ -54,10 +63,7 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
     {
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        using var command = new SqlCommand(DailyTotalsSql, connection);
-        command.Parameters.Add("@PortfolioId", SqlDbType.Int).Value = id;
-        command.Parameters.Add("@From", SqlDbType.Date).Value = from.ToDateTime(TimeOnly.MinValue);
-        command.Parameters.Add("@To", SqlDbType.Date).Value = to.ToDateTime(TimeOnly.MinValue);
+        using var command = CreateRangeCommand(connection, DailyTotalsSql, id, from, to);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var days = new List<DailyTotal>();
@@ -69,11 +75,39 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
         return days;
     }
 
-    // Lee la consulta incluida en el ensamblado para ejecutar el mismo SQL medido en el diagnóstico.
-    private static string LoadDailyTotalsSql()
+    // Ejecuta la consulta mensual medida en SQL y conserva el retorno nulo cuando es indefinido.
+    public async Task<IReadOnlyList<MonthlyPerformance>> GetMonthlyAsync(
+        int id, DateOnly from, DateOnly to, CancellationToken cancellationToken)
     {
-        using var stream = typeof(SqlPerformanceRepository).Assembly.GetManifestResourceStream("DailyTotalsByRange.sql")
-            ?? throw new InvalidOperationException("Falta la consulta de totales diarios en el ensamblado.");
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        using var command = CreateRangeCommand(connection, MonthlySql, id, from, to);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var months = new List<MonthlyPerformance>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            months.Add(new MonthlyPerformance(DateOnly.FromDateTime(reader.GetDateTime(0)),
+                reader.GetInt32(1), reader.GetDecimal(2), reader.IsDBNull(3) ? null : reader.GetDouble(3)));
+        }
+        return months;
+    }
+
+    // Pasa el portafolio y las fechas como parámetros SQL tipados en las consultas por rango.
+    private static SqlCommand CreateRangeCommand(SqlConnection connection, string sql, int id, DateOnly from, DateOnly to)
+    {
+        var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@PortfolioId", SqlDbType.Int).Value = id;
+        command.Parameters.Add("@From", SqlDbType.Date).Value = from.ToDateTime(TimeOnly.MinValue);
+        command.Parameters.Add("@To", SqlDbType.Date).Value = to.ToDateTime(TimeOnly.MinValue);
+        return command;
+    }
+
+    // Carga el archivo SQL incluido en el ensamblado para reutilizar la consulta del diagnóstico.
+    private static string LoadSql(string resourceName)
+    {
+        using var stream = typeof(SqlPerformanceRepository).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Falta el recurso SQL {resourceName} en el ensamblado.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }

@@ -56,6 +56,14 @@ Invoke-RestMethod 'http://127.0.0.1:5080/api/portfolios/7/performance/summary?as
 
 La respuesta incluye `mtd`, `qtd`, `ytd` e `itd`. Cada período indica sus fechas inclusivas, la cantidad de fechas con posiciones, el P&L y el retorno acumulado como razón. MTD comienza el primer día del mes, QTD el primer día del trimestre calendario e YTD el 1 de enero. ITD comienza en `Portfolio.InceptionDate`, que también limita los otros períodos si el portafolio se creó después de su inicio calendario. Un corte en fin de semana conserva la fecha solicitada y considera las posiciones disponibles hasta ella. Un período sin posiciones devuelve cero días y valores nulos.
 
+## Retorno y P&L por mes
+
+```powershell
+Invoke-RestMethod 'http://127.0.0.1:5080/api/portfolios/7/performance/monthly?from=2023-01-30&to=2023-02-02' | ConvertTo-Json -Depth 3
+```
+
+La API valida el portafolio y las fechas. SQL agrupa las posiciones incluidas en el rango y devuelve los meses en orden cronológico. Cada fila de `months` contiene `monthStart` (primer día calendario del mes), `tradingDays`, `pnl` y `cumulativeReturn` (razón). En este ejemplo hay dos días de enero y dos de febrero. Un rango válido sin posiciones devuelve `months: []`. La vista puede usar el año y el mes de `monthStart` para construir la grilla y aplicar formato porcentual `es-CL` al retorno.
+
 ## Pruebas
 
 ```powershell
@@ -64,4 +72,4 @@ dotnet test FinPerf.slnx --configuration Release
 
 Las pruebas unitarias verifican la regla financiera. Las de HTTP usan `WebApplicationFactory` con datos de prueba y comprueban el contrato del endpoint. Ambas se pueden ejecutar sin levantar Docker.
 
-Quedan por integrar en la API el listado de portafolios y la consulta mensual.
+Queda por integrar en la API el listado de portafolios.

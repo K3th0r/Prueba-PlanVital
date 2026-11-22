@@ -105,6 +105,11 @@ public sealed class SummaryEndpointTests : IDisposable
                 ? new(new(2022, 10, 15), new(2022, 10, 17), new(2023, 8, 16))
                 : null);
 
+        // El resumen debe usar los totales diarios, por lo que una lectura mensual falla la prueba.
+        public Task<IReadOnlyList<MonthlyPerformance>> GetMonthlyAsync(
+            int id, DateOnly from, DateOnly to, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("El resumen no necesita la consulta mensual.");
+
         // Registra el rango pedido y devuelve sus filas de prueba para verificar la lectura compartida.
         public Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(
             int id, DateOnly from, DateOnly to, CancellationToken cancellationToken)

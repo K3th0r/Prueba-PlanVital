@@ -10,11 +10,8 @@ internal static class PerformanceEndpoints
     public static async Task<IResult> GetRange(
         int id, string? from, string? to, IPerformanceRepository repository, CancellationToken cancellationToken)
     {
-        if (!TryGetDate(from, out var start) || !TryGetDate(to, out var end))
-            return Results.Problem("Indica from y to con el formato AAAA-MM-DD.", statusCode: 400);
-
-        if (start > end)
-            return Results.Problem("La fecha from debe ser anterior o igual a to.", statusCode: 400);
+        if (ValidateDates(from, to, out var start, out var end) is { } dateError)
+            return dateError;
 
         var coverage = await repository.GetCoverageAsync(id, cancellationToken);
         if (ValidateCoverage(coverage, start, end) is { } error)
@@ -32,6 +29,21 @@ internal static class PerformanceEndpoints
             pnl = result?.PnL,
             cumulativeReturn = result?.CumulativeReturn
         });
+    }
+
+    // Valida el rango y entrega a la vista los meses calculados por SQL, incluidos los meses parciales.
+    public static async Task<IResult> GetMonthly(
+        int id, string? from, string? to, IPerformanceRepository repository, CancellationToken cancellationToken)
+    {
+        if (ValidateDates(from, to, out var start, out var end) is { } dateError)
+            return dateError;
+
+        var coverage = await repository.GetCoverageAsync(id, cancellationToken);
+        if (ValidateCoverage(coverage, start, end) is { } error)
+            return error;
+
+        var months = await repository.GetMonthlyAsync(id, start, end, cancellationToken);
+        return Results.Ok(new { portfolioId = id, from = start, to = end, months });
     }
 
     // Lee el histórico diario una vez y devuelve MTD, QTD, YTD e ITD a la fecha de corte.
@@ -87,6 +99,19 @@ internal static class PerformanceEndpoints
             return Results.Problem("Las fechas deben estar dentro del histórico del portafolio.", statusCode: 400);
 
         return null;
+    }
+
+    // Comprueba el formato y el orden de las fechas antes de consultar el repositorio.
+    private static IResult? ValidateDates(string? from, string? to, out DateOnly start, out DateOnly end)
+    {
+        var validStart = TryGetDate(from, out start);
+        var validEnd = TryGetDate(to, out end);
+        if (!validStart || !validEnd)
+            return Results.Problem("Indica from y to con el formato AAAA-MM-DD.", statusCode: 400);
+
+        return start > end
+            ? Results.Problem("La fecha from debe ser anterior o igual a to.", statusCode: 400)
+            : null;
     }
 
     // Acepta una fecha de la URL si tiene el formato yyyy-MM-dd y existe en el calendario.

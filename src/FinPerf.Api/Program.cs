@@ -10,6 +10,7 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.MapGet("/api/portfolios/{id:int}/performance", PerformanceEndpoints.GetRange);
 app.MapGet("/api/portfolios/{id:int}/performance/summary", PerformanceEndpoints.GetSummary);
+app.MapGet("/api/portfolios/{id:int}/performance/monthly", PerformanceEndpoints.GetMonthly);
 app.Run();
 
 public partial class Program { }
