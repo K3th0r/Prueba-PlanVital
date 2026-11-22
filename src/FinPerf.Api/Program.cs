@@ -1,5 +1,6 @@
 using FinPerf.Api;
 
+// Configura el repositorio y los errores HTTP para servir las consultas de rendimiento.
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<IPerformanceRepository, SqlPerformanceRepository>();

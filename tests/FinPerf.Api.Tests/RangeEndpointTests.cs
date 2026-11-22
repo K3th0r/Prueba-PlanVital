@@ -19,6 +19,7 @@ public sealed class RangeEndpointTests : IDisposable
             services.AddSingleton<IPerformanceRepository>(new SampleRepository());
         }));
 
+    // Comprueba por HTTP el P&L y el retorno del rango que cruza de enero a febrero.
     [Fact]
     public async Task ValidRangeReturnsTheTwoDailyPositionsCompounded()
     {
@@ -32,6 +33,7 @@ public sealed class RangeEndpointTests : IDisposable
         Assert.Equal(0.053939m, decimal.Round(body.CumulativeReturn!.Value * 100m, 6));
     }
 
+    // Verifica que las fechas inválidas y los portafolios inexistentes devuelvan el error HTTP esperado.
     [Theory]
     [InlineData("7/performance?from=2023-02-01&to=2023-01-31", 400)]
     [InlineData("7/performance?from=2023-02-30&to=2023-03-01", 400)]
@@ -49,6 +51,7 @@ public sealed class RangeEndpointTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(problem?.Detail));
     }
 
+    // Comprueba que un fin de semana dentro del histórico devuelva cero días y resultados nulos.
     [Fact]
     public async Task WeekendInsideCoverageReturnsAnEmptyPeriod()
     {
@@ -58,16 +61,19 @@ public sealed class RangeEndpointTests : IDisposable
         Assert.Equal(new RangeResponse(0, null, null), await response.Content.ReadFromJsonAsync<RangeResponse>());
     }
 
+    // Cierra el servidor de prueba al terminar cada caso.
     public void Dispose() => factory.Dispose();
 
     private sealed record RangeResponse(int TradingDays, decimal? PnL, decimal? CumulativeReturn);
 
     private sealed class SampleRepository : IPerformanceRepository
     {
+        // Simula la cobertura del portafolio 7 para probar las validaciones sin SQL Server.
         public Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken) =>
             Task.FromResult<PortfolioCoverage?>(id == 7
                 ? new PortfolioCoverage(new(2015, 1, 1), new(2015, 1, 1), new(2024, 12, 31)) : null);
 
+        // Devuelve las filas de prueba comprendidas entre las dos fechas solicitadas.
         public Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(
             int id, DateOnly from, DateOnly to, CancellationToken cancellationToken)
         {

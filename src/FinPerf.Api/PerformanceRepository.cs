@@ -8,8 +8,10 @@ public sealed record PortfolioCoverage(DateOnly InceptionDate, DateOnly? FirstDa
 
 public interface IPerformanceRepository
 {
+    // Devuelve las fechas de inicio y de cobertura para validar el período solicitado.
     Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken);
 
+    // Devuelve una fila por fecha con el P&L y el valor inicial del portafolio.
     Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(
         int id, DateOnly from, DateOnly to, CancellationToken cancellationToken);
 }
@@ -18,9 +20,11 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
 {
     private static readonly string DailyTotalsSql = LoadDailyTotalsSql();
 
+    // Prepara la conexión a FinPerf con la cadena configurada para la API.
     private SqlConnection CreateConnection() => new(configuration.GetConnectionString("FinPerf")
         ?? throw new InvalidOperationException("Configura ConnectionStrings__FinPerf."));
 
+    // Lee de SQL Server el inicio del portafolio y sus fechas con datos (primera y última). Devuelve null si el portafolio no existe.
     public async Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -44,6 +48,7 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
             reader.IsDBNull(2) ? null : DateOnly.FromDateTime(reader.GetDateTime(2)));
     }
 
+    // Consulta SQL Server y devuelve el P&L y el valor inicial por día para componer el retorno del rango.
     public async Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(
         int id, DateOnly from, DateOnly to, CancellationToken cancellationToken)
     {
@@ -64,6 +69,7 @@ internal sealed class SqlPerformanceRepository(IConfiguration configuration) : I
         return days;
     }
 
+    // Lee la consulta incluida en el ensamblado para ejecutar el mismo SQL medido en el diagnóstico.
     private static string LoadDailyTotalsSql()
     {
         using var stream = typeof(SqlPerformanceRepository).Assembly.GetManifestResourceStream("DailyTotalsByRange.sql")

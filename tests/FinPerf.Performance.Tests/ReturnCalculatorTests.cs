@@ -7,6 +7,7 @@ public class ReturnCalculatorTests
 {
     private static readonly DateOnly FirstDate = new(2023, 1, 2);
 
+    // Verifica que ganar 10 % y luego perder 10 % produzca un retorno acumulado de −1 %.
     [Fact]
     public void GainThenLossCompoundsToMinusOnePercent()
     {
@@ -18,6 +19,7 @@ public class ReturnCalculatorTests
         Assert.Equal(new PeriodPerformance(-1m, -0.01m), result);
     }
 
+    // Comprueba que una ganancia posterior del 5 % lleve el acumulado de los tres días a +3,95 %.
     [Fact]
     public void ThirdDayGainCompoundsToThreePointNineFivePercent()
     {
@@ -30,6 +32,7 @@ public class ReturnCalculatorTests
         Assert.Equal(new PeriodPerformance(3.95m, 0.0395m), result);
     }
 
+    // Verifica el retorno diario usando el P&L y el capital inicial conjuntos de dos instrumentos.
     [Fact]
     public void DailyReturnUsesTheCombinedOpeningValueOfBothInstruments()
     {
@@ -42,6 +45,7 @@ public class ReturnCalculatorTests
         Assert.Equal(0.4545m, decimal.Round(result.CumulativeReturn!.Value * 100m, 4));
     }
 
+    // Contrasta el cálculo con los importes del portafolio 7 en dos días de meses distintos.
     [Fact]
     public void RangeAcrossMonthsMatchesPortfolioSevenControl()
     {
@@ -55,6 +59,7 @@ public class ReturnCalculatorTests
         Assert.Equal(0.053939m, decimal.Round(result.CumulativeReturn!.Value * 100m, 6));
     }
 
+    // Comprueba que un día con capital inicial cero deje el retorno indefinido y conserve todo el P&L.
     [Fact]
     public void ZeroOpeningValueMakesReturnUndefinedAndPreservesAllPnL()
     {
@@ -67,6 +72,7 @@ public class ReturnCalculatorTests
         Assert.Equal(new PeriodPerformance(12m, null), result);
     }
 
+    // Verifica que una pérdida del 100 % mantenga en cero el factor acumulado en los días siguientes.
     [Fact]
     public void TotalLossKeepsTheCompoundedReturnAtMinusOne()
     {
@@ -78,6 +84,7 @@ public class ReturnCalculatorTests
         Assert.Equal(new PeriodPerformance(-95m, -1m), result);
     }
 
+    // Comprueba que un período sin posiciones se distinga de uno con retorno cero.
     [Fact]
     public void EmptyPeriodHasNoResult()
     {

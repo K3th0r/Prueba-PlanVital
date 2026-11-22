@@ -15,6 +15,7 @@ public sealed class SummaryEndpointTests : IDisposable
     private readonly SampleRepository repository = new();
     private readonly WebApplicationFactory<Program> factory;
 
+    // Configura el servidor de prueba con un repositorio que registra las lecturas diarias.
     public SummaryEndpointTests()
     {
         factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -25,6 +26,7 @@ public sealed class SummaryEndpointTests : IDisposable
             }));
     }
 
+    // Verifica las cuatro ventanas de agosto y comprueba que comparten una sola lectura del histórico.
     [Fact]
     public async Task AugustCutoffBuildsFourPeriodsFromOneDailyRead()
     {
@@ -43,6 +45,7 @@ public sealed class SummaryEndpointTests : IDisposable
         Assert.Equal((new DateOnly(2022, 10, 15), end), Assert.Single(repository.Reads));
     }
 
+    // Verifica qué períodos quedan vacíos cuando el año o el trimestre empieza sin posiciones.
     [Theory]
     [InlineData("2023-04-01", 1)]
     [InlineData("2023-01-01", 0)]
@@ -57,6 +60,7 @@ public sealed class SummaryEndpointTests : IDisposable
         Assert.Equal(expectedYearDays + 1, body.Itd.TradingDays);
     }
 
+    // Comprueba que ningún período empiece antes de la fecha de inicio del portafolio.
     [Fact]
     public async Task FirstTradingDayUsesInceptionAsEarliestBoundary()
     {
@@ -70,6 +74,7 @@ public sealed class SummaryEndpointTests : IDisposable
         Assert.Equal(expected, body.Itd);
     }
 
+    // Comprueba que un corte inválido o un portafolio inexistente se rechacen antes de leer posiciones.
     [Theory]
     [InlineData("7/performance/summary", 400)]
     [InlineData("7/performance/summary?asOf=2023-02-30", 400)]
@@ -85,6 +90,7 @@ public sealed class SummaryEndpointTests : IDisposable
         Assert.Empty(repository.Reads);
     }
 
+    // Cierra el servidor de prueba al terminar cada caso.
     public void Dispose() => factory.Dispose();
 
     private sealed record Slice(DateOnly From, DateOnly To, int TradingDays, decimal? PnL, decimal? CumulativeReturn);
@@ -93,11 +99,13 @@ public sealed class SummaryEndpointTests : IDisposable
     private sealed class SampleRepository : IPerformanceRepository
     {
         public List<(DateOnly From, DateOnly To)> Reads { get; } = [];
+        // Simula un portafolio cuya primera posición es posterior a su fecha de inicio.
         public Task<PortfolioCoverage?> GetCoverageAsync(int id, CancellationToken cancellationToken) =>
             Task.FromResult<PortfolioCoverage?>(id == 7
                 ? new(new(2022, 10, 15), new(2022, 10, 17), new(2023, 8, 16))
                 : null);
 
+        // Registra el rango pedido y devuelve sus filas de prueba para verificar la lectura compartida.
         public Task<IReadOnlyList<DailyTotal>> GetDailyTotalsAsync(
             int id, DateOnly from, DateOnly to, CancellationToken cancellationToken)
         {

@@ -6,7 +6,7 @@ public sealed record PeriodPerformance(decimal PnL, decimal? CumulativeReturn);
 
 public static class ReturnCalculator
 {
-    // The caller supplies one aggregated row per date in the requested period.
+    // Suma el P&L y compone los retornos de las filas diarias. Devuelve null si el período está vacío.
     public static PeriodPerformance? Calculate(IEnumerable<DailyTotal> days)
     {
         decimal totalPnL = 0m;

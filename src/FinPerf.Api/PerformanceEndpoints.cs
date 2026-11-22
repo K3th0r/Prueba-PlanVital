@@ -6,6 +6,7 @@ namespace FinPerf.Api;
 
 internal static class PerformanceEndpoints
 {
+    // Valida el rango, pide sus totales diarios y devuelve el P&L y el retorno acumulado.
     public static async Task<IResult> GetRange(
         int id, string? from, string? to, IPerformanceRepository repository, CancellationToken cancellationToken)
     {
@@ -33,6 +34,7 @@ internal static class PerformanceEndpoints
         });
     }
 
+    // Lee el histórico diario una vez y devuelve MTD, QTD, YTD e ITD a la fecha de corte.
     public static async Task<IResult> GetSummary(
         int id, string? asOf, IPerformanceRepository repository, CancellationToken cancellationToken)
     {
@@ -49,6 +51,7 @@ internal static class PerformanceEndpoints
         var quarterStart = monthStart.AddMonths(-((cutoff.Month - 1) % 3));
         var yearStart = new DateOnly(cutoff.Year, 1, 1);
 
+        // Ajusta el inicio al nacimiento del portafolio y calcula el período con los días ya cargados.
         PeriodSlice CalculateSince(DateOnly calendarStart)
         {
             var from = calendarStart < inception ? inception : calendarStart;
@@ -71,6 +74,7 @@ internal static class PerformanceEndpoints
     private sealed record PeriodSlice(DateOnly From, DateOnly To, int TradingDays,
         [property: JsonPropertyName("pnl")] decimal? PnL, decimal? CumulativeReturn);
 
+    // Devuelve 404 si el portafolio no existe, 400 si falta cobertura o null si se puede consultar.
     private static IResult? ValidateCoverage(PortfolioCoverage? coverage, DateOnly from, DateOnly to)
     {
         if (coverage is null)
@@ -85,6 +89,7 @@ internal static class PerformanceEndpoints
         return null;
     }
 
+    // Acepta una fecha de la URL si tiene el formato yyyy-MM-dd y existe en el calendario.
     private static bool TryGetDate(string? value, out DateOnly date) =>
         DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
 }
