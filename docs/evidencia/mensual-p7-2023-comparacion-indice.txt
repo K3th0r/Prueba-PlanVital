@@ -1,0 +1,73 @@
+Consulta medida (portafolio 7, 2023)
+
+SET NOCOUNT ON;
+SET STATISTICS IO, TIME ON;
+
+WITH PortfolioDays AS (
+    SELECT
+        CAST(AsOfDate AS date) AS PositionDate,
+        SUM(PnL) AS DailyPnL,
+        CAST(SUM(PnL) / NULLIF(SUM(MarketValueBegin), 0) AS float) AS DailyRate
+    FROM dbo.PositionDaily
+    WHERE PortfolioId = 7
+      AND AsOfDate >= '20230101'
+      AND AsOfDate <  '20240101'
+    GROUP BY CAST(AsOfDate AS date)
+)
+SELECT
+    MONTH(PositionDate) AS MonthNumber,
+    COUNT(*) AS TradingDays,
+    SUM(DailyPnL) AS MonthlyPnL,
+    CAST(100.0 * (EXP(SUM(LOG(1.0 + DailyRate))) - 1.0)
+         AS decimal(12, 6)) AS MonthlyReturnPct
+FROM PortfolioDays
+GROUP BY MONTH(PositionDate)
+ORDER BY MonthNumber;
+
+Antes de la migración 001
+
+MonthNumber TradingDays MonthlyPnL                               MonthlyReturnPct
+----------- ----------- ---------------------------------------- ----------------
+          1          22                              -23804.8236         -.038771
+          2          20                              264616.5096          .449856
+          3          23                              565572.2851          .993724
+          4          20                              -23196.7141         -.043353
+          5          23                               26622.3058          .045829
+          6          22                              233609.9347          .419711
+          7          21                              193093.5792          .368948
+          8          23                              134868.4246          .226345
+          9          21                              223175.5429          .413700
+         10          22                               19872.7741          .064803
+         11          22                              582990.8307         1.027143
+         12          21                              658930.2202         1.281396
+Table 'Worktable'. Scan count 0, logical reads 0, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+Table 'Workfile'. Scan count 0, logical reads 0, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+Table 'PositionDaily'. Scan count 9, logical reads 51816, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+
+ SQL Server Execution Times:
+   CPU time = 516 ms,  elapsed time = 79 ms.
+
+Después de la migración 001
+
+SQL Server parse and compile time: 
+   CPU time = 3 ms, elapsed time = 5 ms.
+MonthNumber TradingDays MonthlyPnL                               MonthlyReturnPct
+----------- ----------- ---------------------------------------- ----------------
+          1          22                              -23804.8236         -.038771
+          2          20                              264616.5096          .449856
+          3          23                              565572.2851          .993724
+          4          20                              -23196.7141         -.043353
+          5          23                               26622.3058          .045829
+          6          22                              233609.9347          .419711
+          7          21                              193093.5792          .368948
+          8          23                              134868.4246          .226345
+          9          21                              223175.5429          .413700
+         10          22                               19872.7741          .064803
+         11          22                              582990.8307         1.027143
+         12          21                              658930.2202         1.281396
+Table 'Worktable'. Scan count 0, logical reads 0, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+Table 'Workfile'. Scan count 0, logical reads 0, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+Table 'PositionDaily'. Scan count 1, logical reads 145, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+
+ SQL Server Execution Times:
+   CPU time = 12 ms,  elapsed time = 12 ms.
