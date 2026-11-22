@@ -46,6 +46,23 @@ Las dos fechas son inclusivas. El resultado de control es un P&L de 30.280,0165 
 
 Uso `Microsoft.Data.SqlClient` para ejecutar el SQL parametrizado y propagar la cancelación de la petición. El repositorio agrupa las posiciones por día con la consulta que ya se midió. `ReturnCalculator` compone los retornos en memoria.
 
+## Pantalla de consulta en React
+
+Inicia la API en `http://127.0.0.1:5080` siguiendo los pasos de la sección anterior. Desde la raíz de FinPerf, abre otra ventana de PowerShell. La versión de Node usada para verificar el proyecto fue 24.16.0.
+
+```powershell
+Set-Location 'src/FinPerf.Web'
+npm.cmd ci
+npm.cmd run dev
+```
+
+Abre [la pantalla local](http://127.0.0.1:5173/). Vite reenvía las llamadas a `/api` al proceso de ASP.NET Core. La conexión a SQL se configura únicamente en la API. Para compilar el frontend ejecuta `npm.cmd run build` en esa misma carpeta.
+
+La pantalla parte con el primer portafolio del catálogo y el corte de ejemplo del enunciado (15-08-2023). Lee el catálogo al abrir. Cuando cambia el portafolio o el corte, solicita el resumen y los retornos mensuales en paralelo y cancela las solicitudes anteriores. La fecha mínima es la de inicio del portafolio. El historial de la tabla llega hasta el corte; una celda sin retorno se muestra con un guion. React aplica el formato `es-CL` a los porcentajes y pesos.
+
+**Verificación manual.** Selecciona el portafolio 7 y el 15-08-2023. La tarjeta MTD y la celda de agosto de 2023 muestran +0,20 % a dos decimales. Al retroceder al 15-07-2023, agosto debe quedar vacío y la celda de julio debe coincidir con el nuevo MTD.
+
+
 ## Listado de portafolios
 
 ```powershell

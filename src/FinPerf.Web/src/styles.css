@@ -1,0 +1,53 @@
+:root { font-family: "Inter", "Segoe UI", sans-serif; color: #172e37; background: #f4f7f8; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+.wrap { width: min(1240px, calc(100% - 64px)); margin: 0 auto; }
+.topbar { background: #123c42; color: #fff; }
+.brand { display: flex; align-items: center; gap: 10px; height: 61px; font-size: 23px; font-weight: 700; letter-spacing: -.8px; }
+.brand-mark { display: flex; align-items: end; gap: 3px; height: 21px; margin-right: 2px; }
+.brand-mark i { background: #9ce2c6; width: 5px; height: 10px; border-radius: 1px; }
+.brand-mark i:nth-child(2) { height: 15px; } .brand-mark i:last-child { height: 21px; }
+.brand-area { margin-left: 12px; border-left: 1px solid #527076; padding-left: 20px; color: #d5e5e7; font-size: 14px; font-weight: 450; letter-spacing: 0; }
+main { padding-bottom: 52px; }
+.page-heading { padding: 35px 0 21px; }
+h1,h2,h3,p { margin: 0; }
+h1 { font-size: clamp(29px, 3.3vw, 44px); line-height: 1.1; letter-spacing: -.045em; font-weight: 650; }
+.filters,.table-panel,.card { background: white; border: 1px solid #d6e0e1; border-radius: 10px; }
+.filters { display: flex; gap: 20px; padding: 18px 22px; }
+label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+input,select,button { font: inherit; }
+select,input { height: 40px; border: 1px solid #acbfc1; color: #20393f; background-color: white; border-radius: 5px; padding: 0 10px; font-size: 16px; font-weight: 500; }
+select { min-width: 220px; appearance: none; padding-right: 35px; background-image: linear-gradient(45deg,transparent 50%,#3c585e 50%),linear-gradient(135deg,#3c585e 50%,transparent 50%); background-position: calc(100% - 16px) 17px,calc(100% - 11px) 17px; background-size: 5px 5px; background-repeat: no-repeat; }
+:focus-visible { outline: 3px solid #26887b; outline-offset: 3px; }
+.section-heading { margin: 28px 0 13px; }
+h2 { font-size: 22px; letter-spacing: -.035em; font-weight: 650; }
+.cards { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+.card { padding: 18px 19px 16px; }
+.card h3 { display: flex; align-items: baseline; justify-content: space-between; font-size: 17px; font-weight: 600; gap: 4px; }
+abbr { text-decoration: none; font-size: 12px; letter-spacing: .06em; font-weight: 650; color: #536b71; }
+.return { margin: 12px 0 16px; font-size: clamp(24px,2.7vw,37px); letter-spacing: -.045em; font-weight: 600; }
+.positive { color: #08705a; } .negative { color: #a24335; } .neutral { color: #62777d; }
+.pnl { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; justify-content: space-between; padding-top: 10px; border-top: 1px solid #e3eaeb; font-size: 14px; color: #526970; }
+.pnl strong { color: #273f46; font-size: 15px; font-weight: 600; }
+small { display: block; color: #526970; margin-top: 8px; }
+.table-panel { overflow: hidden; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+th,td { padding: 11px 9px; text-align: right; }
+thead { background: #e9f1f1; color: #405f65; }
+thead th { font-weight: 600; }
+tbody tr { border-top: 1px solid #e2eaeb; }
+tbody tr:hover { background: #f3f8f7; }
+tr > :first-child { position: sticky; left: 0; padding-left: 16px; text-align: left; background: #f4f8f8; }
+thead tr > :first-child { background: #e9f1f1; } tr > :last-child { padding-right: 16px; }
+.table-note { border-top: 1px solid #e2eaeb; padding: 12px 16px; color: #566d73; font-size: 13px; }
+.notice { background: #fff; border: 1px solid #c6d6d7; border-radius: 8px; padding: 16px; }
+.error { display: flex; align-items: center; gap: 14px; color: #87392f; }
+button { cursor: pointer; border-radius: 5px; border: 1px solid #acbfc1; background: white; color: #193f45; padding: 6px 12px; }
+@media (max-width: 900px) { .cards { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 600px) {
+  .wrap { width: calc(100% - 32px); } .brand-area { font-size: 13px; margin-left: 2px; padding-left: 12px; }
+  .filters { flex-direction: column; gap: 12px; padding: 15px; } select,input { min-width: 0; width: 100%; }
+  .cards { gap: 8px; } .card { padding: 13px 10px; } .card h3 { flex-wrap: wrap; font-size: 16px; }
+  .return { font-size: 25px; } .section-heading { margin-top: 22px; }
+}
