@@ -1,17 +1,26 @@
 # FinPerf
 
-API de rendimiento de portafolios con ASP.NET Core (.NET 10) y SQL Server 2022.
+Consulta de rendimiento de portafolios de inversión con SQL Server 2022, ASP.NET Core (.NET 10) y React. La pantalla muestra retorno y P&L a una fecha de corte y un historial de retornos mensuales. [Repositorio con el historial de commits](https://github.com/K3th0r/Prueba-PlanVital)
+
+## Requisitos de ejecución
+
+Los comandos siguientes se ejecutan en PowerShell desde la carpeta que contiene `FinPerf.slnx`. Se necesita Docker Desktop en modo de contenedores Linux con Docker Compose, el SDK de .NET 10 y Node.js 24 con npm. La primera instalación descarga la imagen y las dependencias. Se usan los puertos locales 1433 (SQL Server), 5080 (API) y 5173 (React).
 
 ## Levantar una copia nueva de la base
 
-Desde la raíz del repositorio, en PowerShell con Docker Desktop en ejecución, define la contraseña de desarrollo en la sesión y guárdala para reutilizar el volumen:
+Desde la raíz del repositorio, en PowerShell con Docker Desktop en ejecución, define la contraseña de desarrollo en la sesión. Usa una contraseña que cumpla la directiva de SQL Server (al menos ocho caracteres con mayúsculas, minúsculas y números) y consérvala para reutilizar el volumen.
 
 ```powershell
 $claveSql = Read-Host 'Contraseña de sa para FinPerf' -AsSecureString
 $env:SA_PASSWORD = [System.Net.NetworkCredential]::new('', $claveSql).Password
 Remove-Variable claveSql
 docker compose up -d
-docker compose logs -f db-init
+if ($LASTEXITCODE -ne 0) { throw 'No se pudo iniciar Docker Compose.' }
+$init = docker compose ps -a -q db-init
+if (!$init) { throw 'Falta el contenedor db-init.' }
+$salida = docker wait $init
+docker compose logs db-init
+if ($salida -ne '0') { throw 'Falló la inicialización. Revisa el log de db-init.' }
 ```
 
 La inicialización debe terminar con `Base FinPerf lista.` en la primera carga. Con la base creada, aplica la migración del índice:
@@ -20,7 +29,13 @@ La inicialización debe terminar con `Base FinPerf lista.` en la primera carga. 
 Get-Content -Raw db/migrations/001_position_daily_portfolio_date.sql | docker exec -i finperf-sql bash -c 'SQLCMDPASSWORD=$MSSQL_SA_PASSWORD /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -d FinPerf'
 ```
 
-Para trabajar con la base local ya cargada desde el proyecto Compose `recursos`, usa directamente el contenedor `finperf-sql` en ejecución y su contraseña existente. El diagnóstico y las mediciones se encuentran en [docs/sql-diagnostico.md](docs/sql-diagnostico.md).
+El juego de prueba completo contiene 5.218.000 posiciones, 20 portafolios, 100 instrumentos y 2.609 fechas entre el 01-01-2015 y el 31-12-2024. Comprueba la carga con esta consulta. Si ya tienes el contenedor `finperf-sql` del ejercicio en ejecución, puedes usarlo con su contraseña y aplicar la misma migración.
+
+```powershell
+'SELECT COUNT_BIG(*) AS Positions, COUNT(DISTINCT PortfolioId) AS Portfolios, COUNT(DISTINCT InstrumentId) AS Instruments, COUNT(DISTINCT AsOfDate) AS TradingDays FROM dbo.PositionDaily;' | docker exec -i finperf-sql bash -c 'SQLCMDPASSWORD=$MSSQL_SA_PASSWORD /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -d FinPerf'
+```
+
+El diagnóstico contiene los planes, lecturas, tiempos y valores de control del portafolio 7. [Diagnóstico SQL](docs/sql-diagnostico.md)
 
 ## Ejecutar la API
 
@@ -97,4 +112,22 @@ dotnet test FinPerf.slnx --configuration Release
 
 Las pruebas unitarias verifican la regla financiera. Las de HTTP usan `WebApplicationFactory` con datos de prueba y comprueban el contrato del endpoint. Ambas se pueden ejecutar sin levantar Docker.
 
-La API incluye el listado de portafolios, el rendimiento de un rango, el resumen a una fecha de corte y la serie mensual.
+## Decisiones y supuestos
+
+- Elegí .NET 10 y Minimal APIs para exponer cuatro consultas de lectura. `Microsoft.Data.SqlClient` permite ejecutar el mismo SQL parametrizado que medí en el diagnóstico y pasar el `CancellationToken` hasta el lector.
+- SQL agrupa las posiciones de los instrumentos por portafolio y día. Para el rango y el resumen, C# divide P&L diario por capital inicial y multiplica los factores diarios. Así puedo probar la regla por separado y reutilizarla en los cuatro períodos. Para la grilla, SQL entrega directamente una fila por mes.
+- Las fechas son inclusivas y el trimestre es calendario. Un día sin posiciones dentro de la cobertura se omite. Si el capital inicial total de un día es cero, el retorno del período es nulo y el P&L sigue disponible.
+- El JSON expresa los retornos como razón (0,01 equivale a 1 %). React se ocupa de presentar porcentajes y pesos en `es-CL` y de conservar los filtros mientras cambian los resultados.
+
+## Qué haría con más tiempo
+
+El resumen con todo el histórico del portafolio 7 tardó 227,1 ms por HTTP (mediana). La consulta de totales diarios tardó 138 ms. Compararía esa implementación con una que devuelva los cuatro períodos ya compuestos en SQL y mediría el endpoint completo en las mismas condiciones antes de incorporar una preagregación. [Mediciones y tratamiento de correcciones históricas](docs/sql-diagnostico.md)
+
+## Tiempo real aproximado
+
+| Actividad | Tiempo |
+|---|---:|
+| Preparación del ambiente, estudio de fórmulas y del modelo de datos | 3 h |
+| Diagnóstico SQL, cambios y mediciones | 3 h |
+| API .NET y frontend React, estimados en conjunto | 1 h 30 min |
+| **Total estimado** | **7 h 30 min** |

@@ -8,6 +8,8 @@ El nodo 29 (`Index Spool`) entregó 67.834.000 filas en 260 ejecuciones, sumando
 
 Mi hipótesis es que agrupar los instrumentos por portafolio y fecha una sola vez reduciría ese trabajo repetido. Queda por comprobarlo comparando las lecturas y los tiempos con los mismos parámetros.
 
+Al leer el procedimiento encontré tres causas del trabajo repetido. El filtro aplica `YEAR` y `MONTH` a `AsOfDate`, lo que dificulta buscar directamente un intervalo por fecha. Para cada día, la función escalar compara fechas convertidas a texto. Además, una subconsulta correlacionada vuelve a sumar el P&L de cada mes. En la consulta corregida comparé la fecha original con dos límites y calculé ambos montos en la misma agrupación diaria. [Procedimiento original](../db/02_procedimiento_actual.sql)
+
 ## Del instrumento al retorno diario del portafolio
 
 Para calcular el YTD, el procedimiento original usa `SUM(DailyReturn)`. Primero quise verificar qué pasa al sumar los retornos de los instrumentos de un solo día. Para el 3 de enero comparé esa suma con el P&L total dividido por el valor inicial del portafolio.
@@ -18,7 +20,7 @@ Para calcular el YTD, el procedimiento original usa `SUM(DailyReturn)`. Primero 
 |---:|---:|---:|---:|---:|
 | 100 | 129.379,8494 | 53.639.476,0000 | 28,232000 % | 0,241202 % |
 
-El P&L corresponde al porcentaje mostrado en `PortfolioReturnPct`. Ganar 129.379,8494 pesos sobre un valor inicial de 53.639.476 pesos equivale aproximadamente a un 0,241202 %. Al sumar primero los montos en pesos, cada instrumento pesa según el capital que tenía invertido ese día.
+El P&L es el monto en pesos. Al dividirlo por el valor inicial obtuve el porcentaje de `PortfolioReturnPct`. Ganar 129.379,8494 pesos sobre un valor inicial de 53.639.476 pesos equivale aproximadamente a un 0,241202 %. Al sumar primero los montos en pesos, cada instrumento pesa según el capital que tenía invertido ese día.
 
 ## Del retorno diario al mes y al año
 
@@ -110,9 +112,11 @@ Para estos dos endpoints elegí agrupar las posiciones en SQL Server y componer 
 
 La [consulta de totales diarios](../db/queries/daily_totals_by_range.sql) filtra por portafolio y fechas y suma el P&L y el valor inicial de los instrumentos. Para el portafolio 7 en 2023, las 26.000 posiciones quedan reducidas a 260 filas, una por día. Si consulto todo el histórico cargado de un portafolio, la aplicación recibe como máximo 2.609 filas.
 
-En C# implementé una [función de acumulación](../src/FinPerf.Performance/ReturnCalculator.cs) que suma el P&L y multiplica los factores diarios usando `decimal`. Devuelve el retorno como razón y deja el redondeo para la presentación. Así puedo verificar con un test unitario que +10 % seguido de −10 % da −1 %, sin levantar la base. Para un rango usaré todos los días devueltos. Para MTD, QTD, YTD e ITD haré una sola consulta hasta el corte y aplicaré la misma regla a los días de cada período. Verifiqué la función en .NET 10 con siete [pruebas xUnit](../tests/FinPerf.Performance.Tests/ReturnCalculatorTests.cs), incluidos los tres ejemplos del enunciado y el rango del 31 de enero al 1 de febrero de 2023 (30.280,0165 pesos y 0,053939 %). Las pruebas usan datos en memoria. El endpoint de rango ya conecta la consulta con la función. En la prueba HTTP contra FinPerf, el rango de dos días respondió 200 con 30.280,0165 pesos de P&L y 0,053939 % de retorno. El año 2023 respondió con 260 días, 2.856.350,8692 pesos y 5,326416 %. El resumen también usa la consulta de totales diarios y la misma función de composición.
+En C# implementé una [función de acumulación](../src/FinPerf.Performance/ReturnCalculator.cs) que suma el P&L y multiplica los factores diarios usando `decimal`. Devuelve el retorno como razón y deja el redondeo para la presentación. Así puedo verificar con un test unitario que +10 % seguido de −10 % da −1 %, sin levantar la base. Para un rango uso todos los días devueltos. Para MTD, QTD, YTD e ITD hago una sola consulta de totales diarios hasta el corte y aplico la misma regla a los días de cada período. Verifiqué la función en .NET 10 con siete [pruebas xUnit](../tests/FinPerf.Performance.Tests/ReturnCalculatorTests.cs), incluidos los tres ejemplos del enunciado y el rango del 31 de enero al 1 de febrero de 2023 (30.280,0165 pesos y 0,053939 %). Las pruebas usan datos en memoria. El endpoint de rango ya conecta la consulta con la función. En la prueba HTTP contra FinPerf, el rango de dos días respondió 200 con 30.280,0165 pesos de P&L y 0,053939 % de retorno. El año 2023 respondió con 260 días, 2.856.350,8692 pesos y 5,326416 %. El resumen también usa la consulta de totales diarios y la misma función de composición.
 
 Resolver el acumulado completo en SQL permitiría enviar una sola fila por rango o cuatro resultados para el resumen. Con la opción elegida acepto transferir las filas diarias para poder reutilizar y probar la regla directamente en la aplicación. La consulta mensual ya compone en SQL y devuelve una fila por mes. Sus resultados sirven de control: para un rango que coincida con un mes completo, ambas implementaciones deben coincidir a la precisión publicada, incluidos los casos de retorno indefinido.
+
+Para el rango anual del portafolio 7 (01-01-2023 a 31-12-2023) medí también la consulta final de totales diarios con `STATISTICS IO, TIME`: entregó 260 días con **145 lecturas lógicas** de `PositionDaily`, **0 lecturas físicas** y **30 ms** de tiempo transcurrido en esa ejecución.
 
 ## Medición del resumen HTTP
 
@@ -124,3 +128,9 @@ Para el portafolio 7 leí los metadatos (inicio del portafolio y cobertura) y pe
 | Resumen al 31-12-2024, con ITD desde 2015 | 227,1 ms |
 
 Tomé cinco muestras consecutivas tras una petición de calentamiento, en Release y con el mismo cliente HTTP local. Para el resumen, la consulta de totales diarios medida por separado con `STATISTICS IO, TIME` registró 1.427 lecturas lógicas de `PositionDaily` y una mediana de 138 ms (cinco ejecuciones). El objetivo orientativo de 200 ms se cumple para esa consulta en esta medición. El resumen completo por HTTP supera los 200 ms en el histórico más largo. Estas pruebas no aíslan el costo individual de transferencia, cálculo en C# o serialización. Como posible mejora queda comparar con un resumen compuesto en SQL o con totales diarios precalculados.
+
+## Datos nuevos y correcciones históricas
+
+Las consultas leen `PositionDaily` y agregan en el momento. SQL Server mantiene el índice con cada inserción, actualización o eliminación. Una vez confirmada la transacción, la siguiente consulta incorpora los cambios. Una pantalla abierta vuelve a consultar al cambiar el corte o al recargarla.
+
+Si el volumen justificara persistir totales diarios, usaría una fila por `(PortfolioId, fecha)` con dos montos, P&L y capital inicial. En cada carga identificaría las claves afectadas, incluidas la anterior y la nueva cuando se corrige la fecha o el portafolio. En la misma transacción recalcularía sus sumas desde las posiciones, reemplazaría el total y eliminaría la fila diaria si ya no quedan posiciones. Así, repetir la carga produce los mismos totales. Los meses y acumulados que incluyen una fecha corregida se compondrían al consultarlos a partir de esos totales actualizados.
